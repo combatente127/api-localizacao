@@ -73,12 +73,15 @@ const payloadSchema = z.object({
   mapsUrl: z.string().url().optional(),
 });
 
-function makeTransport() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,        // 465 = SSL direto; 587 = STARTTLS
+    auth: { user, pass },
+    requireTLS: true,            // força TLS
+    tls: { rejectUnauthorized: false }
+  });
+
 
   return nodemailer.createTransport({
     host,
@@ -122,4 +125,5 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("API iniciada na porta", port);
 });
+
 
