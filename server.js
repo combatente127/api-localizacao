@@ -110,15 +110,16 @@ app.post("/send-location", ipLimiter, requireAuth, deviceLimiter, async (req, re
   const text =
     `DeviceId: ${deviceId}\nLatitude: ${lat}\nLongitude: ${lon}\nMapa: ${url}\n`;
 
-  try {
-    await transporter.sendMail({ from, to, subject, text });
-    return res.json({ ok: true });
-  } catch (e) {
-    return res.status(502).json({ error: "send_failed" });
+    } catch (e) {
+    console.error("SMTP ERROR:", e);
+    return res.status(502).json({
+      error: "send_failed",
+      detail: String(e?.message || e),
+    });
   }
-});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("API iniciada na porta", port);
 });
+
