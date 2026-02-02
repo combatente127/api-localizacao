@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch"); // se der erro, eu te digo como ajustar
+const crypto = require("crypto");
 
 const app = express();
 
@@ -38,6 +38,27 @@ function extractBearerToken(authHeader = "") {
   return String(m[1] || "").trim();
 }
 
+// comparação em tempo constante (evita timing leak)
+function tokenAllowed(token, allowedList) {
+  if (!token || allowedList.length === 0) return false;
+  const tokenBuf = Buffer.from(token);
+  for (const a of allowedList) {
+    const aBuf = Buffer.from(a);
+    if (aBuf.length !== tokenBuf.length) continue;
+    if (crypto.timingSafeEqual(aBuf, tokenBuf)) return true;
+  }
+  return false;
+}
+
+function toNumber(x) {
+  const n = typeof x === "number" ? x : Number(String(x).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function validLatLon(lat, lon) {
+  return lat !== null && lon !== null && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+}
+
 // ====== Endpoint principal ======
 app.post("/send-location", async (req, res) => {
   const authHeader = req.headers.authorization || "";
@@ -55,11 +76,14 @@ app.post("/send-location", async (req, res) => {
   if (!authHeader) return res.status(401).json({ error: "unauthorized", reason: "missing_authorization_header" });
   if (!token) return res.status(401).json({ error: "unauthorized", reason: "invalid_bearer_format" });
   if (allowed.length === 0) return res.status(401).json({ error: "unauthorized", reason: "server_has_no_APP_TOKENS" });
-  if (!allowed.includes(token)) return res.status(401).json({ error: "unauthorized", reason: "token_not_in_APP_TOKENS" });
+  if (!tokenAllowed(token, allowed)) return res.status(401).json({ error: "unauthorized", reason: "token_not_in_APP_TOKENS" });
 
   const { to, deviceId, lat, lon, mapsUrl } = req.body || {};
   if (!to) return res.status(400).json({ error: "missing_to" });
-  if (lat == null || lon == null) return res.status(400).json({ error: "missing_lat_lon" });
+
+  const latN = toNumber(lat);
+  const lonN = toNumber(lon);
+  if (!validLatLon(latN, lonN)) return res.status(400).json({ error: "invalid_lat_lon" });
 
   const BREVO_API_KEY = (process.env.BREVO_API_KEY || "").trim();
   const FROM_EMAIL = (process.env.FROM_EMAIL || "").trim() || "jaedernunes127@gmail.com";
@@ -68,10 +92,13 @@ app.post("/send-location", async (req, res) => {
   const subject = "Localização recebida";
   const text = [
     `Device: ${deviceId || "android"}`,
-    `Lat: ${lat}`,
-    `Lon: ${lon}`,
+    `Lat: ${latN}`,
+    `Lon: ${lonN}`,
     mapsUrl ? `Maps: ${mapsUrl}` : "",
   ].filter(Boolean).join("\n");
+
+  // aceita "to" string ou array
+  const toList = Array.isArray(to) ? to : [to];
 
   try {
     const r = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -83,7 +110,7 @@ app.post("/send-location", async (req, res) => {
       },
       body: JSON.stringify({
         sender: { email: FROM_EMAIL, name: "LocalizacaoApp" },
-        to: [{ email: to }],
+        to: toList.map((email) => ({ email })),
         subject,
         textContent: text,
       }),
@@ -96,7 +123,7 @@ app.post("/send-location", async (req, res) => {
       return res.status(502).json({ error: "send_failed", provider: "brevo_api", status: r.status, detail: data });
     }
 
-    return res.json({ ok: true, provider: "brevo_api", to, messageId: data.messageId || null });
+    return res.json({ ok: true, provider: "brevo_api", to: toList, messageId: data.messageId || null });
   } catch (e) {
     console.log("brevo_exception:", String(e));
     return res.status(502).json({ error: "send_failed", provider: "brevo_api", detail: String(e) });
