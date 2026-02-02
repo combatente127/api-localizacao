@@ -4,7 +4,7 @@
   "type": "module",
   "main": "server.cjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.cjs"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -14,7 +14,10 @@
     "pino": "^9.0.0",
     "pino-http": "^10.0.0",
     "zod": "^3.23.8",
-    "nodemailer": "^6.9.14"
+    "nodemailer": "^6.9.14",
+    "resend": "^3.0.0"
   }
 }
+
+
 
