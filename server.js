@@ -10,6 +10,12 @@ app.use(express.json({ limit: "64kb" }));
 const PORT = process.env.PORT || 10000;
 
 // ====== Rota raiz (para parar "Cannot GET /") ======
+
+app.post("/send-location", async (req, res) => {
+  console.log("BODY RECEBIDO:", req.body);
+  return res.json({ body: req.body });
+});
+
 app.get("/", (req, res) => {
   res.json({ ok: true, service: "api-localizacao", endpoints: ["/send-location"] });
 });
@@ -133,4 +139,5 @@ app.post("/send-location", async (req, res) => {
 app.listen(PORT, () => {
   console.log("api_started", { port: String(PORT) });
 });
+
 
