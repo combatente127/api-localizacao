@@ -2,7 +2,7 @@
   "name": "api-localizacao",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "main": "server.cjs",
   "scripts": {
     "start": "node server.js"
   },
@@ -17,3 +17,4 @@
     "nodemailer": "^6.9.14"
   }
 }
+
